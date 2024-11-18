@@ -1,10 +1,44 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
+import { fetchEvents } from '../../util/http.js';
+import ErrorBlock from '../UI/ErrorBlock.jsx';
+import LoadingIndicator from '../UI/LoadingIndicator.jsx';
+import EventItem from './EventItem.jsx';
 
 export default function FindEventSection() {
   const searchElement = useRef();
+  const [searchTerm, setSearchTerm] = useState();
+
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['events', { search: searchTerm }],
+    queryFn: ({ signal }) => fetchEvents({ signal, searchTerm }),
+    enabled: searchTerm !== undefined
+  });
 
   function handleSubmit(event) {
     event.preventDefault();
+    setSearchTerm(searchElement.current.value);
+  }
+
+  let content = <p>Please enter a search term and to find events.</p>;
+
+  if (isLoading) {
+    content = <LoadingIndicator />;
+  }
+
+  if (isError) {
+    content = <ErrorBlock title="An error occured" message={error.info?.message || 'Failed to fetch any events. No server connection'} />;
+  }
+
+  if (data) {
+    content = data.length ? (
+      <ul className="events-list">
+        {data.map(event => {
+          return <li key={event.id}><EventItem event={event} /></li>
+        })}
+      </ul>
+    ) : <p>Could not find any events, please try another search input!</p>;
   }
 
   return (
@@ -17,10 +51,11 @@ export default function FindEventSection() {
             placeholder="Search events"
             ref={searchElement}
           />
-          <button>Search</button>
+          {isLoading && <p>Searching.....</p>}
+          {!isLoading && <button>Search</button>}
         </form>
       </header>
-      <p>Please enter a search term and to find events.</p>
+      {content}
     </section>
   );
 }
